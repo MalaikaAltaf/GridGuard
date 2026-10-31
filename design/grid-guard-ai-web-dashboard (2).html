@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grid-Guard AI — Revenue Protection Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.js"></script>
+<style>
+
+/* ============================================================
+   GRID-GUARD AI — DESIGN TOKENS
+   Skeuomorphic control-panel aesthetic, moderate warm palette.
+   Grounded in the subject: substation control-room hardware —
+   brushed enclosure panels, engraved plates, LED status lamps,
+   analog gauges, warning plates, ledger paper, punch-card logs.
+   ============================================================ */
+:root{
+  /* --- surface metals / enclosure --- */
+  --panel-bg:      #e9e4d6;   /* painted steel enclosure */
+  --panel-raised:  #f6f2e7;   /* highlight bevel face */
+  --panel-mid:     #ddd6c2;
+  --panel-well:    #d8d0ba;   /* recessed data well */
+  --panel-well-dk: #c4bb9f;
+  --seam:          #b7ac8d;   /* panel seam / rivet line */
+  --seam-dark:     #8f846a;
+
+  /* --- ink --- */
+  --ink:        #2a2418;
+  --ink-soft:   #665c48;
+  --ink-faint:  #948a6f;
+  --ink-invert: #f6f2e7;
+
+  /* --- copper accent (brass/copper wiring, primary actions) --- */
+  --copper:       #b0632c;
+  --copper-light: #d68f52;
+  --copper-deep:  #7e451e;
+  --copper-glow:  rgba(176,99,44,0.35);
+
+  /* --- steel-blue (info / system / sync) --- */
+  --steel:        #3d6a86;
+  --steel-light:  #6a97b2;
+  --steel-deep:   #274a5f;
+
+  /* --- risk semantics (never used alone — always icon+text) --- */
+  --risk-high:      #a6392c;
+  --risk-high-dim:  #7c2c22;
+  --risk-med:       #b17a1c;
+  --risk-med-dim:   #8a5f14;
+  --risk-low:       #3f6b45;
+  --risk-low-dim:   #2f5133;
+
+  /* --- alert / warning (demo-data banner, cautions) — solid, refined, never striped --- */
+  --alert-amber:      #C89228;
+  --alert-amber-deep: #93690F;
+  --alert-amber-text: #3A2A08;
+
+  /* --- type --- */
+  --f-display: 'IBM Plex Sans', -apple-system, sans-serif;
+  --f-mono:    'IBM Plex Mono', 'Courier New', monospace;
+
+  /* --- spacing scale --- */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px; --sp-8:64px;
+
+  /* --- radii --- */
+  --r-panel:12px; --r-btn:7px; --r-chip:20px; --r-well:8px;
+
+  /* --- elevation --- */
+  --shadow-raised: 0 1px 0 rgba(255,255,255,.55) inset, 0 -1px 0 rgba(0,0,0,.08) inset, 0 8px 18px rgba(35,28,14,.16), 0 1px 2px rgba(35,28,14,.12);
+  --shadow-well:   inset 0 2px 5px rgba(30,24,10,.30), inset 0 -1px 0 rgba(255,255,255,.45);
+  --shadow-btn:    0 2px 0 var(--copper-deep), 0 5px 10px rgba(35,28,14,.28), inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--f-display);
+  color:var(--ink);
+  background:
+    radial-gradient(ellipse at top left, rgba(255,255,255,.5), transparent 60%),
+    var(--panel-bg);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0; font-family:var(--f-display); font-weight:700; letter-spacing:-0.01em;}
+p{margin:0;}
+button{font-family:inherit; cursor:pointer;}
+select,input,textarea{font-family:inherit; font-size:14px;}
+a{color:var(--copper); text-decoration:none;}
+::selection{background:var(--copper-light); color:#fff;}
+:focus-visible{outline:2px solid var(--steel); outline-offset:2px; border-radius:3px;}
+
+.mono{font-family:var(--f-mono);}
+.eyebrow{
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--ink-soft); font-weight:500;
+}
+.plate-label{
+  font-family:var(--f-display); font-weight:700; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--ink-soft);
+}
+
+/* ============================================================
+   Inline "preview" pill (kept only inside the Assign-Case modal,
+   for reviewing its submitting/success/error states — no other
+   review scaffolding lives in the shipped chrome)
+   ============================================================ */
+.state-pill{
+  background:#2f2b21; color:#d8d0b8; border:1px solid #55503f; border-radius:14px; padding:3px 10px; font-size:11px; font-family:var(--f-mono); cursor:pointer;
+}
+.state-pill.active{background:#847a5e; color:#f0ead8; border-color:#847a5e; font-weight:600;}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.shell{display:none; min-height:calc(100vh - 41px); grid-template-columns:220px 1fr; grid-template-rows:auto auto 1fr; grid-template-areas:"topbar topbar" "banner banner" "nav main";}
+body:not(.screen-login):not(.screen-styleguide) .shell{display:grid;}
+
+.topbar{
+  grid-area:topbar;
+  background:linear-gradient(180deg, #35301f 0%, #221f16 100%);
+  color:var(--ink-invert);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--sp-5); height:64px;
+  border-bottom:3px solid var(--seam-dark);
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
+}
+.brand{display:flex; align-items:center; gap:10px;}
+.brand-mark{
+  width:34px; height:34px; border-radius:8px;
+  background:radial-gradient(circle at 35% 30%, var(--copper-light), var(--copper) 55%, var(--copper-deep));
+  border:1px solid #5a3216;
+  box-shadow:0 2px 4px rgba(0,0,0,.4), inset 0 1px 1px rgba(255,255,255,.4);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:700; font-size:15px; font-family:var(--f-mono);
+}
+.brand-text{display:flex; flex-direction:column; line-height:1.15;}
+.brand-text b{font-size:15px; letter-spacing:.02em; color:#f5efdd; text-shadow:0 1px 0 rgba(0,0,0,.5);}
+.brand-text span{font-size:10px; color:#b8ae90; letter-spacing:.08em; text-transform:uppercase; font-family:var(--f-mono);}
+
+.topbar-right{display:flex; align-items:center; gap:var(--sp-5);}
+.sys-led-cluster{display:flex; align-items:center; gap:6px; font-family:var(--f-mono); font-size:11px; color:#b8ae90;}
+.sys-led{width:9px; height:9px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #8fe08f, #2f7a2f); box-shadow:0 0 5px 1px rgba(90,220,90,.7), inset 0 0 1px rgba(0,0,0,.5);}
+.user-chip{display:flex; align-items:center; gap:8px; background:#1a1811; border:1px solid #4a4432; border-radius:20px; padding:4px 12px 4px 4px;}
+.user-avatar{width:26px; height:26px; border-radius:50%; background:linear-gradient(180deg,var(--steel-light),var(--steel)); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; font-family:var(--f-mono); border:1px solid var(--steel-deep);}
+.user-name{font-size:12px; color:#e8e1cb; line-height:1.15;}
+.user-role{font-size:10px; color:#a49a7c; display:block;}
+.signout-btn{background:none; border:1px solid #55503f; color:#c9c0a3; border-radius:6px; padding:6px 8px; display:flex; align-items:center; gap:5px; font-size:11px;}
+.signout-btn:hover{border-color:var(--copper-light); color:#f0ead8;}
+.signout-btn svg{width:13px;height:13px;}
+
+.demo-banner{
+  grid-area:banner;
+  background:linear-gradient(180deg, #d9a53c, var(--alert-amber) 55%, var(--alert-amber-deep));
+  color:var(--alert-amber-text);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:9px 12px;
+  font-family:var(--f-mono); font-weight:700; font-size:12.5px; letter-spacing:.03em;
+  border-top:1px solid rgba(255,255,255,.4);
+  border-bottom:2px solid var(--alert-amber-deep);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 6px rgba(0,0,0,.15);
+}
+.demo-banner .inner{
+  background:rgba(255,255,255,.24); border:1px solid rgba(58,42,8,.35); border-radius:5px; padding:4px 16px; display:flex; align-items:center; gap:8px;
+}
+.demo-banner svg{width:15px;height:15px; flex-shrink:0; color:var(--alert-amber-text);}
+
+.sidenav{
+  grid-area:nav;
+  background:linear-gradient(180deg, #ece6d5, #ddd5bd);
+  border-right:1px solid var(--seam);
+  padding:var(--sp-4) var(--sp-3);
+  display:flex; flex-direction:column; gap:6px;
+}
+.nav-btn{
+  display:flex; align-items:center; gap:10px;
+  padding:11px 12px; border-radius:9px; border:1px solid transparent;
+  background:transparent; color:var(--ink-soft); font-size:13px; font-weight:600; text-align:left;
+  transition:transform .06s ease;
+}
+.nav-btn svg{width:17px; height:17px; flex-shrink:0;}
+.nav-btn:hover{background:var(--panel-raised); border-color:var(--seam);}
+.nav-btn.active{
+  color:var(--ink); background:linear-gradient(180deg, var(--panel-mid), var(--panel-well));
+  border:1px solid var(--seam-dark);
+  box-shadow:var(--shadow-well);
+}
+.nav-btn.active .nav-dot{background:radial-gradient(circle at 35% 30%, var(--copper-light), var(--copper)); box-shadow:0 0 5px 1px var(--copper-glow);}
+.nav-dot{width:6px; height:6px; border-radius:50%; background:var(--seam-dark); margin-left:auto;}
+.sidenav-foot{margin-top:auto; padding:10px 12px; font-size:10.5px; color:var(--ink-faint); font-family:var(--f-mono); border-top:1px solid var(--seam); line-height:1.5;}
+
+.main{grid-area:main; padding:var(--sp-6); overflow-x:auto;}
+.screen-head{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:var(--sp-5); gap:var(--sp-4); flex-wrap:wrap;}
+.screen-head h1{font-size:23px;}
+.screen-sub{font-size:13px; color:var(--ink-soft); margin-top:4px;}
+
+/* ============================================================
+   PANELS / SURFACES
+   ============================================================ */
+.panel{
+  background:linear-gradient(180deg, var(--panel-raised), var(--panel-bg));
+  border:1px solid var(--seam);
+  border-radius:var(--r-panel);
+  box-shadow:var(--shadow-raised);
+}
+.panel-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border-bottom:1px solid var(--seam);
+  background:linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0));
+  border-radius:var(--r-panel) var(--r-panel) 0 0;
+}
+.panel-head h3{font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); font-weight:700;}
+.panel-body{padding:18px;}
+.well{background:var(--panel-well); border:1px solid var(--panel-well-dk); border-radius:var(--r-well); box-shadow:var(--shadow-well);}
+.rivet{position:absolute; width:6px; height:6px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff, var(--seam-dark)); box-shadow:0 1px 1px rgba(0,0,0,.4);}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn{
+  border-radius:var(--r-btn); padding:10px 18px; font-size:13px; font-weight:700; letter-spacing:.01em;
+  border:1px solid transparent; display:inline-flex; align-items:center; gap:8px; justify-content:center;
+}
+.btn svg{width:15px; height:15px;}
+.btn-copper{
+  color:#fff; background:linear-gradient(180deg, var(--copper-light), var(--copper) 65%, var(--copper-deep));
+  border:1px solid var(--copper-deep); box-shadow:var(--shadow-btn); text-shadow:0 -1px 0 rgba(0,0,0,.35);
+}
+.btn-copper:hover{filter:brightness(1.05);}
+.btn-copper:active{transform:translateY(2px); box-shadow:0 0 0 var(--copper-deep), inset 0 2px 5px rgba(0,0,0,.35);}
+.btn-copper:disabled{opacity:.55; cursor:not-allowed; transform:none;}
+.btn-outline{
+  color:var(--ink-soft); background:var(--panel-raised); border:1px solid var(--seam-dark);
+  box-shadow:0 2px 0 var(--seam), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.btn-outline:active{transform:translateY(2px); box-shadow:inset 0 2px 4px rgba(0,0,0,.15);}
+.btn-ghost{color:var(--ink-soft); background:transparent; border:1px solid transparent; padding:8px 10px;}
+.btn-ghost:hover{background:var(--panel-mid);}
+.btn-sm{padding:7px 12px; font-size:12px;}
+.btn-block{width:100%;}
+.btn-retry{color:var(--risk-high-dim); background:#f3e0dc; border:1px solid var(--risk-high); box-shadow:0 2px 0 var(--risk-high-dim);}
+
+/* ============================================================
+   RISK BADGE (signature element — reused everywhere, both surfaces)
+   Never color alone: chrome-bezel LED + distinct icon shape + text
+   ============================================================ */
+.risk-badge{display:inline-flex; align-items:center; gap:8px;}
+.risk-led{
+  width:26px; height:26px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid #cfc6ab; background:linear-gradient(180deg,#fff,#d8d0ba);
+  box-shadow:0 1px 2px rgba(0,0,0,.35), inset 0 -1px 1px rgba(0,0,0,.15);
+}
+.risk-led svg{width:14px; height:14px; stroke-width:2.6;}
+.risk-led.high{background:radial-gradient(circle at 35% 30%, #d6584a, var(--risk-high)); border-color:var(--risk-high-dim); box-shadow:0 0 6px 1px rgba(166,57,44,.55), inset 0 -1px 1px rgba(0,0,0,.25);}
+.risk-led.high svg{color:#fff;}
+.risk-led.medium{background:radial-gradient(circle at 35% 30%, #d9a23e, var(--risk-med)); border-color:var(--risk-med-dim); box-shadow:0 0 6px 1px rgba(177,122,28,.5), inset 0 -1px 1px rgba(0,0,0,.25);}
+.risk-led.medium svg{color:#fff;}
+.risk-led.low{background:radial-gradient(circle at 35% 30%, #6ba172, var(--risk-low)); border-color:var(--risk-low-dim); box-shadow:0 0 6px 1px rgba(63,107,69,.45), inset 0 -1px 1px rgba(0,0,0,.25);}
+.risk-led.low svg{color:#fff;}
+.risk-text{font-weight:700; font-size:13px; color:var(--ink); line-height:1.1;}
+.risk-text small{display:block; font-weight:500; font-size:10.5px; color:var(--ink-faint); font-family:var(--f-mono); margin-top:1px;}
+.risk-badge.sm .risk-led{width:20px; height:20px;}
+.risk-badge.sm .risk-led svg{width:11px;height:11px;}
+.risk-badge.sm .risk-text{font-size:12px;}
+.risk-badge.lg .risk-led{width:42px; height:42px; border-width:3px;}
+.risk-badge.lg .risk-led svg{width:21px;height:21px;}
+.risk-badge.lg .risk-text{font-size:19px;}
+
+/* ============================================================
+   FORM FIELDS — "keypad slot" inputs
+   ============================================================ */
+.field{display:flex; flex-direction:column; gap:6px; margin-bottom:var(--sp-4);}
+.field label{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);}
+.field input, .field select, .field textarea{
+  background:var(--panel-well); border:1px solid var(--panel-well-dk); border-radius:8px;
+  padding:11px 13px; color:var(--ink); box-shadow:var(--shadow-well); font-size:14px;
+}
+.field textarea{resize:vertical; min-height:70px; font-family:var(--f-display); line-height:1.5;
+  background:repeating-linear-gradient(var(--panel-well) 0 27px, var(--panel-well-dk) 27px 28px); background-size:100% 28px;}
+.field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--steel); outline-offset:1px;}
+.field-hint{font-size:11px; color:var(--ink-faint);}
+.field-error{font-size:11.5px; color:var(--risk-high-dim); font-weight:600; display:flex; align-items:center; gap:5px;}
+
+/* rotary/rocker style select used in filter bars */
+.dial-select{position:relative;}
+.dial-select select{
+  appearance:none; -webkit-appearance:none; padding-right:30px; cursor:pointer;
+  background:var(--panel-well); border:1px solid var(--panel-well-dk); border-radius:8px; box-shadow:var(--shadow-well);
+  color:var(--ink); font-size:12.5px; font-weight:600; padding:9px 30px 9px 12px;
+}
+.dial-select::after{
+  content:''; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid var(--ink-soft); pointer-events:none;
+}
+
+/* ============================================================
+   FILTER BAR
+   ============================================================ */
+.filter-bar{display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; padding:14px 18px; background:var(--panel-mid); border-bottom:1px solid var(--seam);}
+.filter-item{display:flex; flex-direction:column; gap:4px;}
+.filter-item .plate-label{font-size:10px;}
+.filter-bar .result-count{margin-left:auto; font-family:var(--f-mono); font-size:12px; color:var(--ink-soft); padding-bottom:8px;}
+.clear-filters{font-size:11.5px; color:var(--copper); font-weight:700; background:none; border:none; padding-bottom:9px;}
+
+/* ============================================================
+   RISK QUEUE TABLE — flat, high-legibility at scale;
+   skeuomorphism lives in the frame/header, not per-row texture.
+   ============================================================ */
+.table-wrap{overflow-x:auto;}
+table.rq{width:100%; border-collapse:collapse; font-size:13px; min-width:820px;}
+table.rq thead th{
+  position:sticky; top:0; z-index:2;
+  background:linear-gradient(180deg,#3a3521,#282413); color:#e7e0c8;
+  text-align:left; padding:11px 16px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  border-bottom:2px solid var(--copper-deep);
+}
+table.rq thead th.num{text-align:right;}
+table.rq tbody tr{background:var(--panel-raised); border-bottom:1px solid var(--seam); cursor:pointer;}
+table.rq tbody tr:nth-child(even){background:#f0ebdd;}
+table.rq tbody tr:hover{background:#e9dfc4; box-shadow:inset 3px 0 0 var(--copper);}
+table.rq tbody td{padding:11px 16px; vertical-align:middle; color:var(--ink);}
+table.rq td.num{text-align:right; font-family:var(--f-mono); font-weight:600;}
+table.rq td .addr{color:var(--ink-soft); font-size:12px; display:block; margin-top:2px;}
+table.rq td .ref{font-family:var(--f-mono); font-weight:600;}
+.score-well{
+  display:inline-block; min-width:34px; text-align:center; padding:3px 7px; border-radius:5px;
+  background:var(--panel-well); box-shadow:var(--shadow-well); font-family:var(--f-mono); font-weight:700;
+}
+.meter-chip{font-size:11px; color:var(--ink-soft); background:var(--panel-mid); border:1px solid var(--seam); border-radius:10px; padding:3px 9px; display:inline-block;}
+tr.rank-1 td:first-child::before, tr.rank-2 td:first-child::before, tr.rank-3 td:first-child::before{
+  content:attr(data-rank); font-family:var(--f-mono); font-size:10px; color:#fff; background:var(--copper); border-radius:4px; padding:1px 5px; margin-right:8px;
+}
+
+.pagination{display:flex; align-items:center; justify-content:space-between; padding:12px 18px; border-top:1px solid var(--seam); background:var(--panel-mid);}
+.pagination .pg-info{font-size:12px; color:var(--ink-soft); font-family:var(--f-mono);}
+.pg-controls{display:flex; align-items:center; gap:8px;}
+.pg-btn{width:30px; height:30px; border-radius:50%; background:linear-gradient(180deg,var(--panel-raised),var(--panel-mid)); border:1px solid var(--seam-dark); box-shadow:0 2px 0 var(--seam), inset 0 1px 0 rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center; color:var(--ink-soft);}
+.pg-btn:active{transform:translateY(2px); box-shadow:inset 0 2px 3px rgba(0,0,0,.2);}
+.pg-btn:disabled{opacity:.35; cursor:not-allowed;}
+.pg-btn svg{width:14px; height:14px;}
+.pg-jump{width:44px; text-align:center; padding:5px; border-radius:5px; border:1px solid var(--panel-well-dk); background:var(--panel-well); box-shadow:var(--shadow-well); font-family:var(--f-mono); font-size:12px;}
+
+/* ============================================================
+   EMPTY / ERROR / LOADING STATE BLOCKS
+   ============================================================ */
+.state-block{}
+.state-empty, .state-error{display:flex; flex-direction:column; align-items:center; text-align:center; padding:56px 32px; gap:14px;}
+.state-icon-well{
+  width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--panel-well); box-shadow:var(--shadow-well); color:var(--ink-faint);
+}
+.state-icon-well svg{width:28px; height:28px;}
+.state-icon-well.err{background:#f0dcd7; color:var(--risk-high-dim); box-shadow:inset 0 2px 5px rgba(166,57,44,.25);}
+.state-title{font-size:15px; font-weight:700; color:var(--ink);}
+.state-msg{font-size:13px; color:var(--ink-soft); max-width:360px; line-height:1.5;}
+.skeleton-row{height:44px; margin:0 18px; border-radius:6px; background:linear-gradient(100deg, var(--panel-well) 30%, #eee7d2 50%, var(--panel-well) 70%); background-size:200% 100%; animation:shimmer 1.6s ease-in-out infinite;}
+@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+.loading-stack{padding:18px 0; display:flex; flex-direction:column; gap:10px;}
+
+/* ============================================================
+   DETAIL CARDS (Consumer Detail / Case Detail)
+   ============================================================ */
+.detail-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:var(--sp-5); align-items:start;}
+@media(max-width:980px){.detail-grid{grid-template-columns:1fr;}}
+.folder-tab{
+  display:inline-flex; align-items:center; gap:8px; background:linear-gradient(180deg,#3a3521,#282413); color:#e7e0c8;
+  padding:7px 16px; border-radius:8px 8px 0 0; font-family:var(--f-mono); font-size:12px; font-weight:600; letter-spacing:.03em;
+}
+.explanation-slip{
+  background:#fbf8ef; border:1px solid var(--seam); border-left:4px solid var(--copper); border-radius:6px;
+  padding:16px 18px; font-size:14.5px; line-height:1.6; color:var(--ink); position:relative;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);
+}
+.explanation-slip::before{content:"AI EXPLANATION"; position:absolute; top:-9px; left:14px; background:var(--panel-raised); padding:0 6px; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; color:var(--ink-faint); font-weight:700;}
+.info-list{display:grid; grid-template-columns:auto 1fr; gap:8px 16px; font-size:13px;}
+.info-list dt{color:var(--ink-faint); font-family:var(--f-mono); font-size:11px; text-transform:uppercase; letter-spacing:.05em; padding-top:2px;}
+.info-list dd{margin:0; color:var(--ink); font-weight:600;}
+
+.chart-panel{padding:16px 18px 8px;}
+.graph-paper{
+  background:
+    linear-gradient(var(--panel-well-dk) 1px, transparent 1px) 0 0/100% 20%,
+    linear-gradient(90deg, var(--panel-well-dk) 1px, transparent 1px) 0 0/8.3% 100%,
+    var(--panel-well);
+  border:1px solid var(--panel-well-dk); border-radius:8px; box-shadow:var(--shadow-well); padding:10px;
+}
+
+/* ============================================================
+   MODAL — Assign Case
+   ============================================================ */
+.modal-backdrop{position:fixed; inset:0; background:rgba(20,17,10,.55); display:none; align-items:center; justify-content:center; z-index:900; padding:20px;}
+.modal-backdrop.open{display:flex;}
+.modal-panel{
+  width:100%; max-width:460px; background:linear-gradient(180deg,var(--panel-raised),var(--panel-bg));
+  border:1px solid var(--seam-dark); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,.4), var(--shadow-raised);
+  overflow:hidden;
+}
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:linear-gradient(180deg,#3a3521,#282413); color:#f0ead8;}
+.modal-head h3{font-size:14px; letter-spacing:.03em;}
+.modal-close{background:none; border:none; color:#c9c0a3; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;}
+.modal-close:hover{background:rgba(255,255,255,.1); color:#fff;}
+.modal-body{padding:20px;}
+.modal-foot{display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid var(--seam); background:var(--panel-mid);}
+.inspector-option{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--panel-well-dk); border-radius:8px; margin-bottom:7px; cursor:pointer; background:var(--panel-raised);}
+.inspector-option input{accent-color:var(--copper);}
+.inspector-option.selected{border-color:var(--copper); background:#f6e9dc; box-shadow:0 0 0 1px var(--copper);}
+.avail-dot{width:7px; height:7px; border-radius:50%; background:var(--risk-low); box-shadow:0 0 4px 1px rgba(63,107,69,.5); margin-left:auto;}
+.modal-mini-switcher{display:flex; gap:5px; padding:8px 20px; background:#2f2b21; border-top:1px dashed #6b654e;}
+
+/* ============================================================
+   STATUS CHIPS (Case List)
+   ============================================================ */
+.status-chip{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:5px 10px; border-radius:20px; border:1px solid;}
+.status-chip svg{width:12px; height:12px;}
+.status-chip.assigned{color:var(--steel-deep); background:#e3edf2; border-color:var(--steel);}
+.status-chip.progress{color:var(--copper-deep); background:#f3e6d6; border-color:var(--copper);}
+.status-chip.confirmed{color:var(--risk-low-dim); background:#dde9dd; border-color:var(--risk-low);}
+.status-chip.falsepos{color:var(--risk-high-dim); background:#f1dcd8; border-color:var(--risk-high);}
+.status-chip.inconclusive{color:var(--ink-soft); background:var(--panel-mid); border-color:var(--seam-dark);}
+
+/* ============================================================
+   CASE DETAIL — outcome / checklist / photo
+   ============================================================ */
+.stamp{
+  display:inline-flex; align-items:center; gap:8px; border:2px dashed var(--ink-faint); color:var(--ink-faint);
+  padding:10px 16px; border-radius:8px; font-family:var(--f-mono); font-weight:700; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+  transform:rotate(-1.5deg);
+}
+.checklist-item{display:flex; align-items:center; gap:9px; padding:7px 0; font-size:13.5px; border-bottom:1px solid var(--panel-mid);}
+.checkbox-done{width:18px; height:18px; border-radius:4px; background:var(--risk-low); display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; box-shadow:inset 0 -1px 1px rgba(0,0,0,.25);}
+.checkbox-done svg{width:12px;height:12px; stroke-width:3;}
+.checkbox-off{width:18px; height:18px; border-radius:4px; background:var(--panel-well); box-shadow:var(--shadow-well); flex-shrink:0;}
+.photo-pin{position:relative; width:150px; border-radius:6px; overflow:hidden; border:6px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,.3); transform:rotate(-2deg);}
+.photo-pin img{display:block; width:100%; height:110px; object-fit:cover;}
+.photo-pin::after{content:''; position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#e8a5a5,#a6392c); box-shadow:0 2px 3px rgba(0,0,0,.4);}
+.gps-readout{font-family:var(--f-mono); font-size:12.5px; background:var(--panel-well); box-shadow:var(--shadow-well); border-radius:6px; padding:8px 12px; display:inline-block;}
+
+/* ============================================================
+   FEEDER MAP
+   ============================================================ */
+.map-canvas{
+  position:relative; height:460px; border-radius:10px; overflow:hidden; border:1px solid var(--seam-dark); box-shadow:var(--shadow-well);
+  background:
+    repeating-linear-gradient(0deg, rgba(63,90,74,.12) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgba(63,90,74,.12) 0 1px, transparent 1px 34px),
+    linear-gradient(160deg,#cdd6c4,#b9c4ac 55%,#c3cdb2);
+}
+.map-pin{position:absolute; transform:translate(-50%,-100%); cursor:pointer;}
+.map-pin .pin-body{width:26px; height:26px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; border:2px solid rgba(0,0,0,.25); box-shadow:0 3px 6px rgba(0,0,0,.35);}
+.map-pin .pin-body svg{transform:rotate(45deg); width:12px; height:12px; color:#fff; stroke-width:3;}
+.map-pin.high .pin-body{background:var(--risk-high);}
+.map-pin.medium .pin-body{background:var(--risk-med);}
+.map-pin.low .pin-body{background:var(--risk-low);}
+.map-popup{position:absolute; z-index:20; background:#fff; border:1px solid var(--seam-dark); border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,.3); padding:12px 14px; width:200px; font-size:12.5px; display:none;}
+.map-popup.open{display:block;}
+.map-legend{position:absolute; bottom:12px; left:12px; background:rgba(246,242,231,.92); border:1px solid var(--seam); border-radius:8px; padding:10px 12px; font-size:11.5px; display:flex; flex-direction:column; gap:6px; box-shadow:var(--shadow-raised);}
+
+/* ============================================================
+   GAUGES (Model Performance)
+   ============================================================ */
+.gauge-row{display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-5);}
+@media(max-width:820px){.gauge-row{grid-template-columns:1fr;}}
+.gauge-card{padding:18px; text-align:center;}
+.gauge-value{font-family:var(--f-mono); font-size:26px; font-weight:700; margin-top:-8px;}
+.gauge-label{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+.gauge-sub{font-size:10.5px; color:var(--ink-faint); font-family:var(--f-mono); margin-top:4px;}
+
+/* ============================================================
+   AUDIT LOG TIMELINE
+   ============================================================ */
+.timeline{position:relative; padding-left:8px;}
+.timeline::before{content:''; position:absolute; left:19px; top:6px; bottom:6px; width:2px; background:repeating-linear-gradient(var(--copper-deep) 0 4px, transparent 4px 8px);}
+.tl-entry{position:relative; display:flex; gap:16px; padding:14px 0;}
+.tl-node{width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; z-index:1; border:2px solid; }
+.tl-node svg{width:16px;height:16px;}
+.tl-node.system{background:radial-gradient(circle at 35% 30%,var(--steel-light),var(--steel)); border-color:var(--steel-deep); color:#fff;}
+.tl-node.human{background:radial-gradient(circle at 35% 30%,var(--copper-light),var(--copper)); border-color:var(--copper-deep); color:#fff;}
+.tl-content{padding-top:4px;}
+.tl-action{font-size:14px; font-weight:600; color:var(--ink);}
+.tl-meta{font-size:11.5px; color:var(--ink-faint); font-family:var(--f-mono); margin-top:3px;}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+.login-section{display:none; min-height:100vh; align-items:center; justify-content:center; padding:32px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255,255,255,.5), transparent 45%),
+    linear-gradient(160deg,#3a3521,#1c1a12 65%);
+}
+body.screen-login .login-section{display:flex;}
+.login-card{width:100%; max-width:400px; background:linear-gradient(180deg,var(--panel-raised),var(--panel-bg)); border:1px solid var(--seam-dark); border-radius:16px; box-shadow:0 25px 60px rgba(0,0,0,.5), var(--shadow-raised); padding:34px 32px;}
+.login-brand{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:26px;}
+.login-brand .brand-mark{width:52px; height:52px; border-radius:14px; font-size:20px;}
+.login-brand h1{font-size:19px;}
+.login-brand span{font-size:11px; color:var(--ink-soft); font-family:var(--f-mono); letter-spacing:.08em; text-transform:uppercase;}
+.login-error{display:none; align-items:center; gap:8px; background:#f1dcd8; border:1px solid var(--risk-high); color:var(--risk-high-dim); font-size:12.5px; font-weight:600; padding:10px 12px; border-radius:8px; margin-bottom:16px;}
+.login-error svg{width:15px;height:15px; flex-shrink:0;}
+.login-error.show{display:flex;}
+.spin{animation:spin 0.9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ============================================================
+   STYLE GUIDE SCREEN
+   ============================================================ */
+.styleguide-section{display:none; padding:var(--sp-7) var(--sp-6); max-width:1100px; margin:0 auto;}
+body.screen-styleguide .styleguide-section{display:block;}
+.sg-swatch-row{display:flex; flex-wrap:wrap; gap:14px; margin:16px 0 30px;}
+.sg-swatch{width:120px;}
+.sg-swatch .chip{height:56px; border-radius:8px; border:1px solid rgba(0,0,0,.15); box-shadow:0 2px 5px rgba(0,0,0,.12);}
+.sg-swatch .lbl{font-size:11px; margin-top:6px; font-weight:600;}
+.sg-swatch .hex{font-size:10.5px; font-family:var(--f-mono); color:var(--ink-faint);}
+.sg-type-row{display:flex; align-items:baseline; gap:16px; padding:10px 0; border-bottom:1px solid var(--seam);}
+.sg-type-row .tag{width:120px; font-family:var(--f-mono); font-size:11px; color:var(--ink-faint); flex-shrink:0;}
+.sg-back{display:inline-flex; align-items:center; gap:6px; margin-bottom:24px; font-size:13px; font-weight:600; color:var(--copper);}
+.sg-back svg{width:15px;height:15px;}
+.sg-block{margin-bottom:44px;}
+.sg-block h2{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); border-bottom:2px solid var(--copper); padding-bottom:8px; margin-bottom:18px;}
+.sg-note{font-size:13px; color:var(--ink-soft); line-height:1.6; max-width:640px; margin-bottom:16px;}
+.sg-comp-row{display:flex; gap:16px; flex-wrap:wrap; align-items:center;}
+.sg-state-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px;}
+.sg-state-card{padding:14px; font-size:12px;}
+.sg-state-card b{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
+
+.text-center{text-align:center;}
+.mt-3{margin-top:12px;} .mt-5{margin-top:24px;}
+.hidden{display:none !important;}
+.flex{display:flex;} .flex-col{display:flex;flex-direction:column;}
+.gap-2{gap:8px;} .gap-3{gap:12px;} .gap-4{gap:16px;}
+</style>
+</head>
+<body class="screen-login">
+
+<!-- ============================================================
+     LOGIN
+     ============================================================ -->
+<div class="login-section">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark">GG</div>
+      <h1>Grid-Guard AI</h1>
+      <span>Revenue Protection Console</span>
+    </div>
+
+    <div id="login-error" class="login-error">
+      <i data-feather="alert-triangle"></i>
+      <span>Invalid email or password. Check your details and try again.</span>
+    </div>
+
+    <div>
+      <div class="field">
+        <label for="li-email">Email</label>
+        <input id="li-email" type="email" placeholder="officer@iesco.gov.pk" value="rukhsana.bibi@iesco.gov.pk" onkeydown="if(event.key==='Enter'){handleLogin(event);}">
+      </div>
+      <div class="field">
+        <label for="li-pass">Password</label>
+        <input id="li-pass" type="password" placeholder="••••••••" value="••••••••" onkeydown="if(event.key==='Enter'){handleLogin(event);}">
+      </div>
+      <button type="button" id="login-btn" class="btn btn-copper btn-block" style="margin-top:8px;" onclick="handleLogin(event)">
+        <span id="login-btn-label">Sign In</span>
+      </button>
+    </div>
+    <p style="text-align:center; font-size:11px; color:var(--ink-faint); margin-top:18px; font-family:var(--f-mono);">
+      IESCO · Revenue Protection Division
+    </p>
+  </div>
+</div>
+
+<!-- ============================================================
+     STYLE GUIDE (design-system reference — not a product screen)
+     ============================================================ -->
+<div class="styleguide-section">
+  <a class="sg-back" href="#" onclick="goToScreen('riskqueue');return false;"><i data-feather="chevron-left"></i>Enter the console</a>
+  <h1 style="font-size:30px;">Grid-Guard AI — Visual System</h1>
+  <p class="sg-note">One design system, two surfaces. Skeuomorphic control-room language — brushed enclosure panels, engraved plates, LED status lamps, analog gauges — grounded in the world the two users actually work in: substations, meters, case files. Applied with restraint so the Risk Queue stays legible at thousands of rows.</p>
+
+  <div class="sg-block">
+    <h2>Color — moderate, warm-industrial</h2>
+    <div class="sg-swatch-row">
+      <div class="sg-swatch"><div class="chip" style="background:#e9e4d6;"></div><div class="lbl">Panel</div><div class="hex">#e9e4d6</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:#2a2418;"></div><div class="lbl">Ink</div><div class="hex">#2a2418</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:#b0632c;"></div><div class="lbl">Copper (action)</div><div class="hex">#b0632c</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:#3d6a86;"></div><div class="lbl">Steel (system)</div><div class="hex">#3d6a86</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:#a6392c;"></div><div class="lbl">Risk — High</div><div class="hex">#a6392c</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:#b17a1c;"></div><div class="lbl">Risk — Medium</div><div class="hex">#b17a1c</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:#3f6b45;"></div><div class="lbl">Risk — Low</div><div class="hex">#3f6b45</div></div>
+      <div class="sg-swatch"><div class="chip" style="background:linear-gradient(180deg,#d9a53c,#C89228 55%,#93690F);"></div><div class="lbl">Alert amber</div><div class="hex">#C89228</div></div>
+    </div>
+    <p class="sg-note">Risk colors never carry meaning alone — see the badge component below. Copper is reserved for primary officer actions (Assign Case, Sign In). Steel is reserved for system-generated events, never for risk.</p>
+  </div>
+
+  <div class="sg-block">
+    <h2>Type</h2>
+    <div class="sg-type-row"><span class="tag">Display / UI</span><span style="font-family:var(--f-display); font-weight:700; font-size:26px;">IBM Plex Sans — Screen titles, nav</span></div>
+    <div class="sg-type-row"><span class="tag">Body</span><span style="font-family:var(--f-display); font-size:15px;">IBM Plex Sans Regular — explanations, body copy, 1.5–1.6 line-height for reading</span></div>
+    <div class="sg-type-row"><span class="tag">Data / mono</span><span style="font-family:var(--f-mono); font-size:15px;">IBM Plex Mono — scores, IDs, timestamps, GPS: reads like a meter readout</span></div>
+    <div class="sg-type-row"><span class="tag">Plate label</span><span class="plate-label" style="font-size:13px;">Uppercase, letter-spaced — engraved panel labels</span></div>
+  </div>
+
+  <div class="sg-block">
+    <h2>Signature component — the risk badge</h2>
+    <p class="sg-note">Appears identically on the officer's dashboard and the inspector's phone: a chrome-bezel LED lamp (color) + a distinct icon shape (never shared between bands) + the word itself. This is how the officer and inspector confirm they're looking at the same case.</p>
+    <div class="sg-comp-row">
+      <div class="panel" style="padding:16px;"><div class="risk-badge lg"><span class="risk-led high"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg></span><span class="risk-text">High<small>Score 80–100</small></span></div></div>
+      <div class="panel" style="padding:16px;"><div class="risk-badge lg"><span class="risk-led medium"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 12 L12 22 L2 12 Z"/></svg></span><span class="risk-text">Medium<small>Score 45–79</small></span></div></div>
+      <div class="panel" style="padding:16px;"><div class="risk-badge lg"><span class="risk-led low"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg></span><span class="risk-text">Low<small>Score 0–44</small></span></div></div>
+    </div>
+  </div>
+
+  <div class="sg-block">
+    <h2>Buttons &amp; inputs</h2>
+    <div class="sg-comp-row">
+      <button class="btn btn-copper">Assign Case</button>
+      <button class="btn btn-outline">Cancel</button>
+      <button class="btn btn-retry"><i data-feather="refresh-cw"></i>Retry</button>
+      <div class="dial-select"><select><option>Feeder 7 – Committee Chowk</option></select></div>
+    </div>
+    <p class="sg-note mt-3">Copper buttons are embossed and depress on click (translateY + inset shadow) — reserved for the one primary action per screen. Everything else stays a flatter outline button so the primary action doesn't get lost.</p>
+  </div>
+
+  <div class="sg-block">
+    <h2>Component states</h2>
+    <p class="sg-note">One state system, reused on every screen: loading, two distinct empty states, error-with-retry. (Mobile adds an offline/pending-sync state — see the mobile spec.)</p>
+    <div class="sg-state-grid">
+      <div class="panel sg-state-card"><b>Loading</b><div class="skeleton-row" style="margin:0;height:16px;"></div><div class="skeleton-row" style="margin:6px 0 0;height:16px;width:70%;"></div></div>
+      <div class="panel sg-state-card"><b>Empty — filtered</b>No consumers match these filters. Try widening your selection.</div>
+      <div class="panel sg-state-card"><b>Empty — no data yet</b>No consumers loaded yet. Flag generation hasn't run for this period.</div>
+      <div class="panel sg-state-card"><b>Error</b>Couldn't load the list. Check your connection and retry.</div>
+    </div>
+  </div>
+
+  <div class="sg-block">
+    <h2>Demo / benchmark data indicator</h2>
+    <p class="sg-note">A solid amber plate, not a footnote — refined and industrial rather than tape-and-stripes, but still unmissable. Persistent under the top bar on every screen that shows consumer data.</p>
+    <div class="demo-banner" style="border-radius:8px;"><div class="inner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Demo / benchmark data — not live DISCO data</span></div></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP SHELL
+     ============================================================ -->
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">GG</div>
+      <div class="brand-text"><b>GRID-GUARD AI</b><span>Revenue Protection Console</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="sys-led-cluster"><span class="sys-led"></span>SYSTEM NOMINAL</div>
+      <div class="user-chip">
+        <div class="user-avatar">RB</div>
+        <div><div class="user-name">Rukhsana Bibi</div><span class="user-role">Revenue Protection Officer</span></div>
+      </div>
+      <button class="signout-btn" onclick="goToScreen('login')"><i data-feather="log-out"></i>Sign out</button>
+    </div>
+  </div>
+
+  <div class="demo-banner"><div class="inner"><i data-feather="alert-triangle"></i><span>Demo / benchmark data — not live DISCO data</span></div></div>
+
+  <div class="sidenav">
+    <button class="nav-btn" data-nav="riskqueue" onclick="goToScreen('riskqueue')"><i data-feather="list"></i>Risk Queue<span class="nav-dot"></span></button>
+    <button class="nav-btn" data-nav="caselist" onclick="goToScreen('caselist')"><i data-feather="clipboard"></i>Case List<span class="nav-dot"></span></button>
+    <button class="nav-btn" data-nav="feedermap" onclick="goToScreen('feedermap')"><i data-feather="map-pin"></i>Feeder Map<span class="nav-dot"></span></button>
+    <button class="nav-btn" data-nav="modelperf" onclick="goToScreen('modelperf')"><i data-feather="activity"></i>Model Performance<span class="nav-dot"></span></button>
+    <div class="sidenav-foot">IESCO Circle 4<br>Session active · v1.0 demo<br><a href="#" onclick="goToScreen('styleguide');return false;" style="color:var(--copper); font-weight:600;">Visual system reference ▸</a></div>
+  </div>
+
+  <div class="main">
+
+    <!-- ===================== RISK QUEUE ===================== -->
+    <section id="screen-riskqueue" class="app-screen">
+      <div class="screen-head">
+        <div><h1>Risk Queue</h1><div class="screen-sub">Ranked by risk score. Highest-priority consumers surface first.</div></div>
+      </div>
+
+      <div class="state-block" data-state="loaded">
+        <div class="panel">
+          <div class="filter-bar">
+            <div class="filter-item"><span class="plate-label">Feeder</span>
+              <div class="dial-select"><select id="f-feeder" onchange="applyFilters()"></select></div>
+            </div>
+            <div class="filter-item"><span class="plate-label">Risk band</span>
+              <div class="dial-select"><select id="f-band" onchange="applyFilters()">
+                <option value="all">All bands</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+              </select></div>
+            </div>
+            <div class="filter-item"><span class="plate-label">Meter type</span>
+              <div class="dial-select"><select id="f-meter" onchange="applyFilters()">
+                <option value="all">All types</option><option value="Single Phase">Single Phase</option><option value="Three Phase">Three Phase</option><option value="CT-Metered">CT-Metered</option>
+              </select></div>
+            </div>
+            <button class="clear-filters" onclick="clearFilters()">Clear filters</button>
+            <div class="result-count" id="rq-count"></div>
+          </div>
+
+          <div id="rq-live-empty" class="state-empty hidden">
+            <div class="state-icon-well"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></div>
+            <div class="state-title">No consumers match these filters</div>
+            <div class="state-msg">Try widening your risk band, feeder, or meter-type selection.</div>
+            <button class="btn btn-outline btn-sm" onclick="clearFilters()">Clear filters</button>
+          </div>
+
+          <div id="rq-table-wrap" class="table-wrap">
+            <table class="rq">
+              <thead><tr>
+                <th>Consumer</th><th>Feeder</th><th>Meter type</th><th class="num">Score</th><th>Risk band</th>
+              </tr></thead>
+              <tbody id="rq-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <div class="pg-info" id="rq-pg-info"></div>
+            <div class="pg-controls">
+              <button class="pg-btn" id="rq-prev" onclick="rqPage(-1)"><i data-feather="chevron-left"></i></button>
+              <input class="pg-jump" id="rq-jump" value="1" onchange="rqJump(this.value)">
+              <span class="mono" style="font-size:12px;color:var(--ink-soft);">/ <span id="rq-pages">1</span></span>
+              <button class="pg-btn" id="rq-next" onclick="rqPage(1)"><i data-feather="chevron-right"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="loading">
+        <div class="panel"><div class="filter-bar"><div class="skeleton-row" style="width:140px;height:30px;"></div><div class="skeleton-row" style="width:140px;height:30px;"></div><div class="skeleton-row" style="width:140px;height:30px;"></div></div>
+          <div class="loading-stack">
+            <div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="empty-nodata">
+        <div class="panel"><div class="state-empty">
+          <div class="state-icon-well"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
+          <div class="state-title">No consumers loaded yet</div>
+          <div class="state-msg">Flag generation hasn't run for this billing period. Check back once the anomaly-detection job completes, or contact your circle admin.</div>
+        </div></div>
+      </div>
+
+      <div class="state-block hidden" data-state="error">
+        <div class="panel"><div class="state-error">
+          <div class="state-icon-well err"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+          <div class="state-title">Couldn't load the risk queue</div>
+          <div class="state-msg">Check your connection and try again. If this keeps happening, contact IT support.</div>
+          <button class="btn btn-retry" onclick="setState('riskqueue','loaded')"><i data-feather="refresh-cw"></i>Retry</button>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- ===================== CONSUMER DETAIL ===================== -->
+    <section id="screen-consumerdetail" class="app-screen">
+      <div class="state-block" data-state="loaded">
+        <button class="btn btn-ghost btn-sm" onclick="goToScreen('riskqueue')" style="margin-bottom:14px;"><i data-feather="chevron-left"></i>Back to Risk Queue</button>
+        <div class="folder-tab" id="cd-tab">CONSUMER · IESCO-RWP-04821</div>
+        <div class="panel" style="border-top-left-radius:0;">
+          <div class="panel-body">
+            <div class="detail-grid">
+              <div>
+                <div class="flex gap-3" style="align-items:center; margin-bottom:18px;">
+                  <div class="risk-badge lg" id="cd-badge"></div>
+                </div>
+                <dl class="info-list" style="margin-bottom:20px;">
+                  <dt>Address</dt><dd id="cd-address"></dd>
+                  <dt>Feeder</dt><dd id="cd-feeder"></dd>
+                  <dt>Meter type</dt><dd id="cd-meter"></dd>
+                  <dt>Risk score</dt><dd id="cd-score" class="mono"></dd>
+                </dl>
+                <div class="explanation-slip" id="cd-explanation" style="margin-bottom:20px;"></div>
+                <button class="btn btn-copper" onclick="openAssignModal()"><i data-feather="user-plus"></i>Assign Case</button>
+              </div>
+              <div class="panel chart-panel">
+                <h3 style="font-size:11.5px; margin-bottom:10px;" class="plate-label">Consumption trend — last 12 months (kWh)</h3>
+                <div class="graph-paper"><svg id="cd-chart" viewBox="0 0 320 140" width="100%" height="140" preserveAspectRatio="none"></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="loading">
+        <div class="panel"><div class="loading-stack" style="padding:24px;">
+          <div class="skeleton-row" style="width:40%;height:34px;"></div>
+          <div class="skeleton-row" style="width:90%;"></div><div class="skeleton-row" style="width:70%;"></div><div class="skeleton-row" style="height:120px;"></div>
+        </div></div>
+      </div>
+
+      <div class="state-block hidden" data-state="error">
+        <div class="panel"><div class="state-error">
+          <div class="state-icon-well err"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+          <div class="state-title">Consumer not found</div>
+          <div class="state-msg">This consumer record may have been removed or reassigned. Return to the Risk Queue and try again.</div>
+          <button class="btn btn-outline" onclick="goToScreen('riskqueue')">Back to Risk Queue</button>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- ===================== CASE LIST ===================== -->
+    <section id="screen-caselist" class="app-screen">
+      <div class="screen-head"><div><h1>Case List</h1><div class="screen-sub">Every case assigned to a field inspector, and its current status.</div></div></div>
+
+      <div class="state-block" data-state="loaded">
+        <div class="panel">
+          <div class="filter-bar">
+            <div class="filter-item"><span class="plate-label">Status</span>
+              <div class="dial-select"><select id="cl-status" onchange="renderCaseList()">
+                <option value="all">All statuses</option><option value="assigned">Assigned</option><option value="progress">In progress</option>
+                <option value="confirmed">Closed — confirmed</option><option value="falsepos">Closed — false positive</option><option value="inconclusive">Closed — inconclusive</option>
+              </select></div>
+            </div>
+            <div class="filter-item"><span class="plate-label">Feeder</span>
+              <div class="dial-select"><select id="cl-feeder" onchange="renderCaseList()"></select></div>
+            </div>
+            <div class="result-count" id="cl-count"></div>
+          </div>
+          <div class="table-wrap">
+            <table class="rq">
+              <thead><tr><th>Consumer</th><th>Inspector</th><th>Status</th><th>Date created</th></tr></thead>
+              <tbody id="cl-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="loading">
+        <div class="panel"><div class="loading-stack"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div></div>
+      </div>
+
+      <div class="state-block hidden" data-state="empty">
+        <div class="panel"><div class="state-empty">
+          <div class="state-icon-well"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M18 9v.01"/><path d="M14 19l6-6"/><path d="M20 19l-6-6"/></svg></div>
+          <div class="state-title">No cases yet</div>
+          <div class="state-msg">Assign a flagged consumer from the Risk Queue to open your first case.</div>
+          <button class="btn btn-outline btn-sm" onclick="goToScreen('riskqueue')">Go to Risk Queue</button>
+        </div></div>
+      </div>
+
+      <div class="state-block hidden" data-state="error">
+        <div class="panel"><div class="state-error">
+          <div class="state-icon-well err"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+          <div class="state-title">Couldn't load cases</div>
+          <div class="state-msg">Check your connection and try again.</div>
+          <button class="btn btn-retry" onclick="setState('caselist','loaded')"><i data-feather="refresh-cw"></i>Retry</button>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- ===================== CASE DETAIL ===================== -->
+    <section id="screen-casedetail" class="app-screen">
+      <button class="btn btn-ghost btn-sm" onclick="goToScreen('caselist')" style="margin-bottom:14px;"><i data-feather="chevron-left"></i>Back to Case List</button>
+      <div class="folder-tab">CASE · <span id="cs-ref">IESCO-RWP-04821</span></div>
+      <div class="panel" style="border-top-left-radius:0;">
+        <div class="panel-body">
+          <div class="detail-grid">
+            <div>
+              <h3 class="plate-label" style="margin-bottom:10px;">Consumer &amp; original flag</h3>
+              <dl class="info-list" style="margin-bottom:14px;">
+                <dt>Address</dt><dd>House 12, Street 4, Dhoke Kashmirian, Rawalpindi</dd>
+                <dt>Feeder</dt><dd>Feeder 7 – Committee Chowk</dd>
+                <dt>Meter type</dt><dd>Single Phase</dd>
+              </dl>
+              <div class="risk-badge" style="margin-bottom:12px;"><span class="risk-led high"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg></span><span class="risk-text">High<small>Score 91</small></span></div>
+              <div class="explanation-slip" style="margin-bottom:22px;">Consumption dropped 62% over the last 3 billing cycles while neighboring meters on the same feeder held steady — a pattern consistent with meter bypass.</div>
+
+              <h3 class="plate-label" style="margin-bottom:10px;">Assignment</h3>
+              <dl class="info-list" style="margin-bottom:22px;">
+                <dt>Inspector</dt><dd>Bilal Ahmed</dd>
+                <dt>Assigned by</dt><dd>Rukhsana Bibi</dd>
+                <dt>Assigned on</dt><dd class="mono">14 Aug 2026, 10:12</dd>
+                <dt>Note</dt><dd>Second complaint from this street this month — please prioritize.</dd>
+              </dl>
+
+              <a href="#" onclick="goToScreen('auditlog');return false;" style="font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> View full audit log</a>
+            </div>
+
+            <div>
+              <div class="state-block" data-state="pending">
+                <div class="panel" style="padding:24px; text-align:center;">
+                  <div class="stamp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Awaiting inspection</div>
+                  <p class="sg-note" style="margin-top:14px;">The inspector hasn't submitted a site visit yet. This section fills in once the inspection is recorded.</p>
+                </div>
+              </div>
+              <div class="state-block hidden" data-state="closed">
+                <div class="panel">
+                  <div class="panel-head"><h3>Inspection outcome</h3><span class="status-chip confirmed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg>Confirmed theft</span></div>
+                  <div class="panel-body">
+                    <h4 class="plate-label" style="margin-bottom:8px; font-size:10.5px;">Tampering type</h4>
+                    <div class="checklist-item"><span class="checkbox-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg></span>Bypass wire found on service line</div>
+                    <div class="checklist-item"><span class="checkbox-off"></span>Meter reversed</div>
+                    <div class="checklist-item"><span class="checkbox-off"></span>Remote-control device</div>
+                    <h4 class="plate-label" style="margin:16px 0 8px; font-size:10.5px;">Inspector's note</h4>
+                    <p style="font-size:13.5px; line-height:1.6;">Bypass wire found routed around meter terminals behind the meter board; photographed and removed on site.</p>
+                    <div class="flex gap-4 mt-3" style="align-items:flex-end; flex-wrap:wrap;">
+                      <div class="photo-pin"><img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=300&q=60" alt="Inspection site photo"></div>
+                      <div><h4 class="plate-label" style="margin-bottom:6px; font-size:10.5px;">GPS location</h4><div class="gps-readout">33.5975° N, 73.0479° E</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FEEDER MAP ===================== -->
+    <section id="screen-feedermap" class="app-screen">
+      <div class="screen-head"><div><h1>Feeder Map</h1><div class="screen-sub">Where flagged consumers are concentrated, by feeder.</div></div></div>
+
+      <div class="state-block" data-state="loaded">
+        <div class="panel">
+          <div class="filter-bar">
+            <div class="filter-item"><span class="plate-label">Feeder</span><div class="dial-select"><select id="fm-feeder" onchange="renderMap()"></select></div></div>
+            <div class="filter-item"><span class="plate-label">Risk band</span><div class="dial-select"><select id="fm-band" onchange="renderMap()">
+              <option value="all">All bands</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+            </select></div></div>
+          </div>
+          <div class="panel-body">
+            <div class="map-canvas" id="map-canvas">
+              <div class="map-legend">
+                <div class="risk-badge sm"><span class="risk-led high"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg></span><span class="risk-text">High</span></div>
+                <div class="risk-badge sm"><span class="risk-led medium"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 12 L12 22 L2 12 Z"/></svg></span><span class="risk-text">Medium</span></div>
+                <div class="risk-badge sm"><span class="risk-led low"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg></span><span class="risk-text">Low</span></div>
+              </div>
+              <div class="map-popup" id="map-popup"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="loading">
+        <div class="panel"><div class="panel-body"><div class="skeleton-row" style="height:420px;"></div></div></div>
+      </div>
+
+      <div class="state-block hidden" data-state="empty">
+        <div class="panel"><div class="state-empty">
+          <div class="state-icon-well"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-2-1"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></div>
+          <div class="state-title">No geocoded consumers to show</div>
+          <div class="state-msg">Flagged consumers in this view don't have location data yet.</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- ===================== MODEL PERFORMANCE ===================== -->
+    <section id="screen-modelperf" class="app-screen">
+      <div class="screen-head"><div><h1>Model Performance</h1><div class="screen-sub">How often closed cases confirm the AI's flags — the honesty check on the queue above.</div></div></div>
+
+      <div class="state-block" data-state="loaded">
+        <div class="gauge-row" style="margin-bottom:24px;">
+          <div class="panel gauge-card">
+            <svg viewBox="0 0 200 110" width="180" height="99"><g id="gauge-confirmed"></g></svg>
+            <div class="gauge-value" style="color:var(--risk-low-dim);">61%</div>
+            <div class="gauge-label">Confirmed theft</div>
+            <div class="gauge-sub">131 of 214 closed cases</div>
+          </div>
+          <div class="panel gauge-card">
+            <svg viewBox="0 0 200 110" width="180" height="99"><g id="gauge-falsepos"></g></svg>
+            <div class="gauge-value" style="color:var(--copper-deep);">24%</div>
+            <div class="gauge-label">False positive</div>
+            <div class="gauge-sub">51 of 214 closed cases</div>
+          </div>
+          <div class="panel gauge-card">
+            <svg viewBox="0 0 200 110" width="180" height="99"><g id="gauge-inconclusive"></g></svg>
+            <div class="gauge-value" style="color:var(--ink-soft);">15%</div>
+            <div class="gauge-label">Inconclusive</div>
+            <div class="gauge-sub">32 of 214 closed cases</div>
+          </div>
+        </div>
+        <div class="panel chart-panel" style="padding-bottom:18px;">
+          <h3 class="plate-label" style="margin-bottom:10px; font-size:11.5px;">Confirmed-theft rate — last 6 months</h3>
+          <div class="graph-paper"><svg id="mp-trend" viewBox="0 0 460 140" width="100%" height="140" preserveAspectRatio="none"></svg></div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="loading">
+        <div class="gauge-row" style="margin-bottom:24px;">
+          <div class="panel" style="padding:24px;"><div class="skeleton-row" style="height:99px;"></div></div>
+          <div class="panel" style="padding:24px;"><div class="skeleton-row" style="height:99px;"></div></div>
+          <div class="panel" style="padding:24px;"><div class="skeleton-row" style="height:99px;"></div></div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="empty">
+        <div class="panel"><div class="state-empty">
+          <div class="state-icon-well"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+          <div class="state-title">No closed cases yet</div>
+          <div class="state-msg">Rates can't be calculated until at least one case is closed with an outcome. This is not a 0% confirmed rate — it's simply not measurable yet.</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- ===================== AUDIT LOG ===================== -->
+    <section id="screen-auditlog" class="app-screen">
+      <button class="btn btn-ghost btn-sm" onclick="goToScreen('casedetail')" style="margin-bottom:14px;"><i data-feather="chevron-left"></i>Back to Case</button>
+      <div class="screen-head"><div><h1>Audit Log</h1><div class="screen-sub">Full, immutable history for case <span class="mono">IESCO-RWP-04821</span>.</div></div></div>
+
+      <div class="state-block" data-state="loaded">
+        <div class="panel panel-body">
+          <div class="timeline">
+            <div class="tl-entry"><div class="tl-node human">RB</div><div class="tl-content"><div class="tl-action">Case assigned to Bilal Ahmed</div><div class="tl-meta">Rukhsana Bibi · 14 Aug 2026, 10:12</div></div></div>
+            <div class="tl-entry"><div class="tl-node human">BA</div><div class="tl-content"><div class="tl-action">Inspection submitted — confirmed theft</div><div class="tl-meta">Bilal Ahmed · 16 Aug 2026, 15:47</div></div></div>
+            <div class="tl-entry"><div class="tl-node system"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg></div><div class="tl-content"><div class="tl-action">Case closed — confirmed theft</div><div class="tl-meta">System · 16 Aug 2026, 15:47</div></div></div>
+            <div class="tl-entry"><div class="tl-node system"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg></div><div class="tl-content"><div class="tl-action">Flag generated by anomaly-detection model</div><div class="tl-meta">System · 09 Aug 2026, 03:00</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state-block hidden" data-state="loading">
+        <div class="panel panel-body"><div class="loading-stack"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div></div>
+      </div>
+
+      <div class="state-block hidden" data-state="empty">
+        <div class="panel"><div class="state-empty">
+          <div class="state-icon-well"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div class="state-title">No history yet</div>
+          <div class="state-msg">This shouldn't normally happen — every case starts with a flag-generated entry.</div>
+        </div></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — Assign Case
+     ============================================================ -->
+<div class="modal-backdrop" id="assign-modal">
+  <div class="modal-panel">
+    <div class="modal-head"><h3>Assign Case — <span id="am-ref" class="mono"></span></h3><button class="modal-close" onclick="closeAssignModal()"><i data-feather="x"></i></button></div>
+    <div class="modal-body">
+      <div class="state-block" data-state="form">
+        <div class="field"><label>Inspector</label>
+          <div id="am-inspectors"></div>
+        </div>
+        <div class="field"><label for="am-note">Note (optional)</label>
+          <textarea id="am-note" placeholder="e.g. Second complaint from this street this month — please prioritize."></textarea>
+        </div>
+      </div>
+      <div class="state-block hidden text-center" data-state="submitting" style="padding:30px 0;">
+        <i data-feather="loader" class="spin" style="width:26px;height:26px;color:var(--copper);"></i>
+        <p style="margin-top:10px; font-size:13px; color:var(--ink-soft);">Assigning case…</p>
+      </div>
+      <div class="state-block hidden text-center" data-state="success" style="padding:20px 0;">
+        <div class="state-icon-well" style="background:#dde9dd;color:var(--risk-low-dim); margin:0 auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg></div>
+        <p style="margin-top:12px; font-weight:700;">Case assigned to <span id="am-success-name"></span></p>
+      </div>
+      <div class="state-block hidden" data-state="error">
+        <div class="field-error" style="margin-bottom:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Assignment failed — Ayesha Raza has no active session right now.</div>
+        <p style="font-size:12.5px; color:var(--ink-soft);">Try a different inspector, or ask them to sign in and retry.</p>
+      </div>
+    </div>
+    <div class="modal-foot" id="am-foot">
+      <button class="btn btn-outline" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-copper" onclick="submitAssign()">Confirm assignment</button>
+    </div>
+    <div class="modal-mini-switcher">
+      <span class="lbl" style="color:#c9c0a3; font-family:var(--f-mono); font-size:10.5px; align-self:center;">PREVIEW:</span>
+      <button class="state-pill active" onclick="setModalState('form')">Form</button>
+      <button class="state-pill" onclick="setModalState('submitting')">Submitting</button>
+      <button class="state-pill" onclick="setModalState('success')">Success</button>
+      <button class="state-pill" onclick="setModalState('error')">Error</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ICON LIBRARY (mix of feather + hand-drawn for shapes feather
+   lacks — every risk band gets a UNIQUE shape, not just a color)
+   ============================================================ */
+const ICON = {
+  triangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 L2 20 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>',
+  diamond: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 12 L12 22 L2 12 Z"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg>',
+  filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  alertcircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  clipboardoff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M18 9v.01"/><path d="M14 19l6-6"/><path d="M20 19l-6-6"/></svg>',
+  mapoff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-2-1"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+  activityoff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+  filetext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  system: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg>'
+};
+
+/* ============================================================
+   DEMO DATA
+   ============================================================ */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd = mulberry32(4242);
+
+const FEEDERS = ["Feeder 3 – Satellite Town","Feeder 7 – Committee Chowk","Feeder 11 – Dhoke Kashmirian","Feeder 14 – Chaklala","Feeder 18 – Gulraiz","Feeder 22 – Pirwadhai","Feeder 25 – Muslim Town","Feeder 29 – Adiala Road","Feeder 33 – Bahria Town","Feeder 37 – Westridge"];
+const METER_TYPES = ["Single Phase","Three Phase","CT-Metered"];
+const INSPECTORS = [{name:"Bilal Ahmed",available:true},{name:"Ayesha Raza",available:false},{name:"Usman Tariq",available:true},{name:"Sana Malik",available:true},{name:"Hassan Iqbal",available:true}];
+
+const EXPLANATIONS = [
+ "Consumption dropped 62% over the last 3 billing cycles while neighboring meters on the same feeder held steady — a pattern consistent with meter bypass.",
+ "Recorded load is far below the sanctioned connection size for 4 consecutive months, with no corresponding drop in nearby consumers.",
+ "Usage pattern shows a sudden, sustained drop right after the last physical meter inspection — worth a closer look.",
+ "Night-time consumption is unusually flat compared to daytime, a signature often seen with remote bypass devices.",
+ "Billed units are consistently lower than the feeder's load-loss model predicts for a connection of this size.",
+];
+
+function genConsumers(n){
+  const arr=[];
+  for(let i=0;i<n;i++){
+    const r = rnd();
+    let band, scoreMin, scoreMax;
+    if(r<0.09){band='high';scoreMin=80;scoreMax=98;}
+    else if(r<0.36){band='medium';scoreMin=45;scoreMax=79;}
+    else {band='low';scoreMin=3;scoreMax=44;}
+    const score = Math.floor(scoreMin + rnd()*(scoreMax-scoreMin));
+    const feeder = FEEDERS[Math.floor(rnd()*FEEDERS.length)];
+    const meter = METER_TYPES[Math.floor(rnd()*METER_TYPES.length)];
+    const house = 1+Math.floor(rnd()*280);
+    const street = 1+Math.floor(rnd()*22);
+    const area = feeder.split('– ')[1];
+    arr.push({
+      id:i, ref:`IESCO-RWP-${(10000+i)}`, address:`House ${house}, Street ${street}, ${area}, Rawalpindi`,
+      feeder, meter, score, band, explanation: EXPLANATIONS[Math.floor(rnd()*EXPLANATIONS.length)]
+    });
+  }
+  arr.sort((a,b)=>b.score-a.score);
+  return arr;
+}
+const CONSUMERS = genConsumers(1842);
+
+const CASE_STATUSES = ['assigned','progress','confirmed','falsepos','inconclusive'];
+const STATUS_LABEL = {assigned:'Assigned',progress:'In progress',confirmed:'Closed — confirmed',falsepos:'Closed — false positive',inconclusive:'Closed — inconclusive'};
+function genCases(n){
+  const arr=[];
+  for(let i=0;i<n;i++){
+    const c = CONSUMERS[Math.floor(rnd()*300)];
+    const status = CASE_STATUSES[Math.floor(rnd()*CASE_STATUSES.length)];
+    const inspector = INSPECTORS[Math.floor(rnd()*INSPECTORS.length)].name;
+    const day = 1+Math.floor(rnd()*20);
+    arr.push({ref:c.ref, feeder:c.feeder, inspector, status, date:`${day} Aug 2026`});
+  }
+  return arr;
+}
+const CASES = genCases(43);
+
+/* ============================================================
+   RISK BADGE / STATUS CHIP RENDER HELPERS
+   ============================================================ */
+function riskBadgeHTML(band, score, size){
+  const cls = size?` ${size}`:'';
+  const icon = band==='high'?ICON.triangle:band==='medium'?ICON.diamond:ICON.check;
+  const label = band.charAt(0).toUpperCase()+band.slice(1);
+  return `<span class="risk-badge${cls}"><span class="risk-led ${band}">${icon}</span><span class="risk-text">${label}${score!==undefined?`<small>Score ${score}</small>`:''}</span></span>`;
+}
+function statusChipHTML(status){
+  const icons = {
+    assigned:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>',
+    progress:ICON.clock,
+    confirmed:ICON.check,
+    falsepos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    inconclusive:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+  };
+  const cls = {assigned:'assigned',progress:'progress',confirmed:'confirmed',falsepos:'falsepos',inconclusive:'inconclusive'}[status];
+  return `<span class="status-chip ${cls}">${icons[status]}${STATUS_LABEL[status]}</span>`;
+}
+
+/* ============================================================
+   RISK QUEUE — filter / paginate / render
+   ============================================================ */
+let rqFiltered = CONSUMERS.slice();
+let rqPageNum = 1;
+const RQ_PAGE_SIZE = 25;
+
+function initFeederSelects(){
+  ['f-feeder','fm-feeder'].forEach(id=>{
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="all">All feeders</option>' + FEEDERS.map(f=>`<option value="${f}">${f}</option>`).join('');
+  });
+  const clSel = document.getElementById('cl-feeder');
+  clSel.innerHTML = '<option value="all">All feeders</option>' + FEEDERS.map(f=>`<option value="${f}">${f}</option>`).join('');
+}
+
+function applyFilters(){
+  const feeder = document.getElementById('f-feeder').value;
+  const band = document.getElementById('f-band').value;
+  const meter = document.getElementById('f-meter').value;
+  rqFiltered = CONSUMERS.filter(c=>
+    (feeder==='all'||c.feeder===feeder) &&
+    (band==='all'||c.band===band) &&
+    (meter==='all'||c.meter===meter)
+  );
+  rqPageNum = 1;
+  renderRiskQueue();
+}
+function clearFilters(){
+  document.getElementById('f-feeder').value='all';
+  document.getElementById('f-band').value='all';
+  document.getElementById('f-meter').value='all';
+  applyFilters();
+}
+function renderRiskQueue(){
+  const wrap = document.getElementById('rq-table-wrap');
+  const emptyEl = document.getElementById('rq-live-empty');
+  document.getElementById('rq-count').textContent = `${rqFiltered.length.toLocaleString()} consumers`;
+  if(rqFiltered.length===0){
+    wrap.classList.add('hidden'); emptyEl.classList.remove('hidden');
+    document.querySelector('.pagination').classList.add('hidden');
+    return;
+  }
+  wrap.classList.remove('hidden'); emptyEl.classList.add('hidden');
+  document.querySelector('.pagination').classList.remove('hidden');
+
+  const totalPages = Math.max(1, Math.ceil(rqFiltered.length/RQ_PAGE_SIZE));
+  rqPageNum = Math.min(rqPageNum, totalPages);
+  const start = (rqPageNum-1)*RQ_PAGE_SIZE;
+  const pageRows = rqFiltered.slice(start, start+RQ_PAGE_SIZE);
+
+  document.getElementById('rq-tbody').innerHTML = pageRows.map((c,i)=>{
+    const rank = start+i+1;
+    const rankTdAttr = rank<=3?` class="rank-cell" data-rank="#${rank}"`:'';
+    return `<tr onclick="openConsumer('${c.ref}')">
+      <td${rankTdAttr}><span class="ref">${c.ref}</span><span class="addr">${c.address}</span></td>
+      <td>${c.feeder}</td>
+      <td><span class="meter-chip">${c.meter}</span></td>
+      <td class="num"><span class="score-well">${c.score}</span></td>
+      <td>${riskBadgeHTML(c.band, undefined, 'sm')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rq-pg-info').textContent = `Showing ${start+1}–${Math.min(start+RQ_PAGE_SIZE,rqFiltered.length)} of ${rqFiltered.length.toLocaleString()}`;
+  document.getElementById('rq-jump').value = rqPageNum;
+  document.getElementById('rq-pages').textContent = totalPages;
+  document.getElementById('rq-prev').disabled = rqPageNum<=1;
+  document.getElementById('rq-next').disabled = rqPageNum>=totalPages;
+  renderIcons();
+}
+function rqPage(delta){
+  const totalPages = Math.max(1, Math.ceil(rqFiltered.length/RQ_PAGE_SIZE));
+  rqPageNum = Math.min(totalPages, Math.max(1, rqPageNum+delta));
+  renderRiskQueue();
+}
+function rqJump(val){
+  const totalPages = Math.max(1, Math.ceil(rqFiltered.length/RQ_PAGE_SIZE));
+  let n = parseInt(val,10); if(isNaN(n)) n=1;
+  rqPageNum = Math.min(totalPages, Math.max(1,n));
+  renderRiskQueue();
+}
+
+/* ============================================================
+   CONSUMER DETAIL
+   ============================================================ */
+let currentConsumer = CONSUMERS[0];
+function openConsumer(ref){
+  currentConsumer = CONSUMERS.find(c=>c.ref===ref) || CONSUMERS[0];
+  renderConsumerDetail();
+  goToScreen('consumerdetail');
+}
+function renderConsumerDetail(){
+  const c = currentConsumer;
+  document.getElementById('cd-tab').textContent = `CONSUMER · ${c.ref}`;
+  document.getElementById('cd-badge').innerHTML = riskBadgeHTML(c.band, c.score, 'lg');
+  document.getElementById('cd-address').textContent = c.address;
+  document.getElementById('cd-feeder').textContent = c.feeder;
+  document.getElementById('cd-meter').textContent = c.meter;
+  document.getElementById('cd-score').textContent = c.score + ' / 100';
+  document.getElementById('cd-explanation').textContent = c.explanation;
+  drawTrendChart('cd-chart', genTrend(c.band), 'var(--copper)');
+  renderIcons();
+}
+function genTrend(band){
+  const pts=[]; let v = band==='high'?300:band==='medium'?260:220;
+  for(let i=0;i<12;i++){
+    if(band==='high' && i===7) v = v*0.4;
+    else if(band==='medium' && i===8) v = v*0.65;
+    v += (rnd()-0.5)*20;
+    pts.push(Math.max(20,v));
+  }
+  return pts;
+}
+function drawTrendChart(svgId, pts, color){
+  const svg = document.getElementById(svgId);
+  const w=svg.viewBox.baseVal.width||320, h=svg.viewBox.baseVal.height||140;
+  const max = Math.max(...pts), min = Math.min(...pts);
+  const pad=10;
+  const coords = pts.map((v,i)=>{
+    const x = pad + (i/(pts.length-1))*(w-2*pad);
+    const y = h-pad - ((v-min)/(max-min||1))*(h-2*pad);
+    return [x,y];
+  });
+  const path = coords.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const dots = coords.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="${color}"/>`).join('');
+  svg.innerHTML = `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>${dots}`;
+}
+
+/* ============================================================
+   ASSIGN CASE MODAL
+   ============================================================ */
+let selectedInspector = null;
+function openAssignModal(){
+  document.getElementById('am-ref').textContent = currentConsumer.ref;
+  document.getElementById('am-inspectors').innerHTML = INSPECTORS.map(ins=>`
+    <label class="inspector-option ${ins.available?'':''}" onclick="selectInspector(this,'${ins.name}')">
+      <input type="radio" name="inspector" ${!ins.available?'disabled':''}>
+      <span>${ins.name}</span>
+      ${ins.available?'<span class="avail-dot" title="Available"></span>':'<span style="margin-left:auto;font-size:10.5px;color:var(--ink-faint);">No active session</span>'}
+    </label>`).join('');
+  setModalState('form');
+  document.getElementById('assign-modal').classList.add('open');
+  renderIcons();
+}
+function selectInspector(el,name){
+  document.querySelectorAll('.inspector-option').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('input').checked = true;
+  selectedInspector = name;
+}
+function closeAssignModal(){ document.getElementById('assign-modal').classList.remove('open'); }
+function setModalState(state){
+  document.querySelectorAll('#assign-modal .state-block').forEach(b=>b.classList.toggle('hidden', b.dataset.state!==state));
+  document.querySelectorAll('.modal-mini-switcher .state-pill').forEach(p=>p.classList.toggle('active', p.textContent.trim().toLowerCase()===state));
+  document.getElementById('am-foot').style.display = (state==='form')?'flex':'none';
+  if(state==='success'){ document.getElementById('am-success-name').textContent = selectedInspector||'Bilal Ahmed'; }
+}
+function submitAssign(){
+  setModalState('submitting'); renderIcons();
+  setTimeout(()=>{ setModalState('success'); renderIcons(); setTimeout(closeAssignModal, 1400); }, 900);
+}
+
+/* ============================================================
+   CASE LIST
+   ============================================================ */
+function renderCaseList(){
+  const status = document.getElementById('cl-status').value;
+  const feeder = document.getElementById('cl-feeder').value;
+  const filtered = CASES.filter(c=> (status==='all'||c.status===status) && (feeder==='all'||c.feeder===feeder));
+  document.getElementById('cl-count').textContent = `${filtered.length} cases`;
+  document.getElementById('cl-tbody').innerHTML = filtered.map(c=>`
+    <tr onclick="goToScreen('casedetail')">
+      <td><span class="ref">${c.ref}</span></td>
+      <td>${c.inspector}</td>
+      <td>${statusChipHTML(c.status)}</td>
+      <td class="mono">${c.date}</td>
+    </tr>`).join('');
+  renderIcons();
+}
+
+/* ============================================================
+   FEEDER MAP
+   ============================================================ */
+const FEEDER_ZONES = {};
+FEEDERS.forEach((f,i)=>{ FEEDER_ZONES[f] = {x: 12+ (i%5)*19, y: 18+ Math.floor(i/5)*45}; });
+function renderMap(){
+  const canvas = document.getElementById('map-canvas');
+  const feederF = document.getElementById('fm-feeder').value;
+  const bandF = document.getElementById('fm-band').value;
+  canvas.querySelectorAll('.map-pin').forEach(p=>p.remove());
+  // Sample a mixed spread across bands (the array is globally sorted by
+  // score, so a plain slice would over-select "high" — stratify instead).
+  const byBand = {high:[], medium:[], low:[]};
+  CONSUMERS.forEach(c=>{
+    if((feederF==='all'||c.feeder===feederF) && (bandF==='all'||c.band===bandF)) byBand[c.band].push(c);
+  });
+  const pickN = (arr,n)=>{ const copy=arr.slice(); const out=[]; while(copy.length && out.length<n){ out.push(copy.splice(Math.floor(rnd()*copy.length),1)[0]); } return out; };
+  const pool = [...pickN(byBand.high,14), ...pickN(byBand.medium,16), ...pickN(byBand.low,14)];
+  pool.forEach(c=>{
+    const zone = FEEDER_ZONES[c.feeder];
+    const x = Math.min(94,Math.max(4, zone.x + (rnd()-0.5)*16));
+    const y = Math.min(90,Math.max(8, zone.y + (rnd()-0.5)*30));
+    const pin = document.createElement('div');
+    pin.className = `map-pin ${c.band}`;
+    pin.style.left = x+'%'; pin.style.top = y+'%';
+    const icon = c.band==='high'?ICON.triangle:c.band==='medium'?ICON.diamond:ICON.check;
+    pin.innerHTML = `<div class="pin-body">${icon}</div>`;
+    pin.onclick = (e)=>{ e.stopPropagation(); showMapPopup(c, x, y); };
+    canvas.appendChild(pin);
+  });
+  renderIcons();
+}
+function showMapPopup(c,x,y){
+  const popup = document.getElementById('map-popup');
+  popup.style.left = Math.min(x,72)+'%'; popup.style.top = Math.max(y-2,4)+'%';
+  popup.innerHTML = `<b class="mono" style="font-size:12px;">${c.ref}</b><div style="margin:8px 0;">${riskBadgeHTML(c.band,c.score,'sm')}</div><a href="#" onclick="openConsumer('${c.ref}');return false;" style="font-weight:700;font-size:12px;">View Consumer Detail →</a>`;
+  popup.classList.add('open');
+  renderIcons();
+}
+document.addEventListener('click', ()=>{ const p=document.getElementById('map-popup'); if(p) p.classList.remove('open'); });
+
+/* ============================================================
+   MODEL PERFORMANCE — gauges + trend
+   ============================================================ */
+function drawGauge(groupId, pct, color){
+  const g = document.getElementById(groupId);
+  const cx=100, cy=100, r=78;
+  const startAngle = Math.PI, endAngle = 0;
+  const angle = Math.PI - (pct/100)*Math.PI;
+  const trackPath = describeArc(cx,cy,r,180,0);
+  const valPath = describeArc(cx,cy,r,180, 180-(pct/100)*180);
+  const needleAngle = 180-(pct/100)*180;
+  const nx = cx + (r-14)*Math.cos(needleAngle*Math.PI/180);
+  const ny = cy - (r-14)*Math.sin(needleAngle*Math.PI/180);
+  g.innerHTML = `
+    <path d="${trackPath}" fill="none" stroke="#cfc6ab" stroke-width="14" stroke-linecap="round"/>
+    <path d="${valPath}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round"/>
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#3a3521" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="7" fill="#3a3521" stroke="#fff" stroke-width="1.5"/>
+  `;
+}
+function describeArc(cx,cy,r,startDeg,endDeg){
+  const s = polar(cx,cy,r,startDeg), e = polar(cx,cy,r,endDeg);
+  const largeArc = Math.abs(startDeg-endDeg)>180?1:0;
+  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
+}
+function polar(cx,cy,r,deg){ const rad=deg*Math.PI/180; return {x:cx+r*Math.cos(rad), y:cy-r*Math.sin(rad)}; }
+
+function drawTrend(){
+  const svg = document.getElementById('mp-trend');
+  const data = [52,55,58,60,63,61];
+  const w=460,h=140,pad=24;
+  const max=70,min=40;
+  const coords = data.map((v,i)=>{
+    const x = pad+(i/(data.length-1))*(w-2*pad);
+    const y = h-pad-((v-min)/(max-min))*(h-2*pad);
+    return [x,y];
+  });
+  const path = coords.map((p,i)=>(i===0?'M':'L')+p[0]+','+p[1]).join(' ');
+  const months = ['Mar','Apr','May','Jun','Jul','Aug'];
+  const dots = coords.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="var(--steel)"/><text x="${p[0]}" y="${h-4}" font-size="9" fill="var(--ink-faint)" text-anchor="middle" font-family="IBM Plex Mono">${months[i]}</text>`).join('');
+  svg.innerHTML = `<path d="${path}" fill="none" stroke="var(--steel)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>${dots}`;
+}
+
+/* ============================================================
+   SCREEN / STATE SWITCHING
+   (STATES is kept only as reference documentation of which
+   loading/empty/error variants exist per screen — e.g. for a
+   developer to trigger from the console with setState('riskqueue',
+   'error'). No in-product control drives it any more.)
+   ============================================================ */
+const STATES = {
+  riskqueue:['loaded','loading','empty-nodata','error'],
+  consumerdetail:['loaded','loading','error'],
+  caselist:['loaded','loading','empty','error'],
+  casedetail:['pending','closed'],
+  feedermap:['loaded','loading','empty'],
+  modelperf:['loaded','loading','empty'],
+  auditlog:['loaded','loading','empty']
+};
+
+function goToScreen(name){
+  document.body.className = 'screen-'+name;
+  document.querySelectorAll('.app-screen').forEach(s=>s.style.display='none');
+  const el = document.getElementById('screen-'+name);
+  if(el) el.style.display='block';
+
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.nav===name));
+
+  if(name==='casedetail'){ setCaseDetailState('pending'); }
+  if(name==='riskqueue'){ setState('riskqueue','loaded'); }
+  if(name==='feedermap'){ setTimeout(renderMap, 0); }
+  if(name==='modelperf'){ setTimeout(()=>{drawGauge('gauge-confirmed',61,'var(--risk-low)'); drawGauge('gauge-falsepos',24,'var(--copper)'); drawGauge('gauge-inconclusive',15,'#948a6f'); drawTrend();},0); }
+  if(name==='caselist'){ renderCaseList(); }
+  if(name==='consumerdetail'){ renderConsumerDetail(); }
+
+  renderIcons();
+  window.scrollTo(0,0);
+}
+
+function setState(screen, state){
+  document.querySelectorAll(`#screen-${screen} > .state-block`).forEach(b=>{
+    b.classList.toggle('hidden', b.dataset.state!==state);
+  });
+  if(screen==='casedetail'){ setCaseDetailState(state); }
+  if(screen==='riskqueue' && state==='loaded'){ renderRiskQueue(); }
+  if(screen==='consumerdetail' && state==='loaded'){ renderConsumerDetail(); }
+  if(screen==='caselist' && state==='loaded'){ renderCaseList(); }
+  if(screen==='feedermap' && state==='loaded'){ renderMap(); }
+  if(screen==='modelperf' && state==='loaded'){ setTimeout(()=>{drawGauge('gauge-confirmed',61,'var(--risk-low)'); drawGauge('gauge-falsepos',24,'var(--copper)'); drawGauge('gauge-inconclusive',15,'#948a6f'); drawTrend();},0); }
+  renderIcons();
+}
+function setCaseDetailState(state){
+  document.querySelectorAll('#screen-casedetail .state-block').forEach(b=>b.classList.toggle('hidden', b.dataset.state!==state));
+}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+function handleLogin(e){
+  if(e && typeof e.preventDefault === 'function') e.preventDefault();
+  const btnLabel = document.getElementById('login-btn-label');
+  const btn = document.getElementById('login-btn');
+  if(btn.disabled) return false; // already submitting — ignore repeat Enter/click
+  document.getElementById('login-error').classList.remove('show');
+  btnLabel.innerHTML = '<i data-feather="loader" class="spin" style="width:14px;height:14px;"></i> Authenticating…';
+  renderIcons();
+  btn.disabled = true;
+  setTimeout(()=>{
+    btn.disabled = false; btnLabel.textContent='Sign In';
+    goToScreen('riskqueue');
+  }, 700);
+  return false;
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function renderIcons(){ if(window.feather) feather.replace(); }
+initFeederSelects();
+renderIcons();
+</script>
+</body>
+</html>

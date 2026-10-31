@@ -1,0 +1,103 @@
+# ==============================================================================
+# Grid-Guard AI — Root Git Ignore
+# ==============================================================================
+
+# --- Secrets & Environment Variables (CRITICAL: NEVER COMMIT) ---
+.env
+.env.*
+!.env.example
+*.env
+backend/.env
+web/.env
+mobile/.env
+
+# --- Operating System & Editor Files ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+env/
+ENV/
+.venv/
+.Python
+backend/venv/
+backend/.pytest_cache/
+.pytest_cache/
+*.log
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/alembic/versions/*
+!backend/alembic/versions/.gitkeep
+
+# --- Machine Learning Models & Heavy Artifacts (>50MB) ---
+# Note: grid_guard_model.pkl is ~56MB. We keep the directory structure with .gitkeep
+# and feature names JSON, while ignoring heavy weights/pickles.
+*.pkl
+*.joblib
+*.h5
+*.onnx
+*.pt
+*.pth
+*.bin
+backend/ml-artifact/*.pkl
+!backend/ml-artifact/.gitkeep
+!backend/ml-artifact/sgcc_monthly_feature_names.json
+
+# --- Web Frontend (React / Vite / Node) ---
+node_modules/
+web/node_modules/
+web/dist/
+web/dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.eslintcache
+.stylelintcache
+
+# --- Mobile (Flutter / Android / iOS) ---
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/coverage/
+mobile/*.iml
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/build/
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/ios/.symlinks/
+mobile/ios/Pods/
+mobile/ios/Podfile.lock
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/app.framework
+*.dill
+*.apk
+*.aab
